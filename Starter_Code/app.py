@@ -2,23 +2,32 @@
 from flask import Flask, jsonify
 import datetime as dt
 from sqlalchemy import func
+import sqlalchemy
+from sqlalchemy.ext.automap import automap_base
+from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, func
 
 
 #################################################
 # Database Setup
 #################################################
-
+engine = create_engine("sqlite:///Resources/hawaii.sqlite")
 
 # reflect an existing database into a new model
 
 # reflect the tables
 
+Base = automap_base()
+
+Base.prepare(autoload_with=engine)
 
 # Save references to each table
 
 
+Measurement = Base.classes.measurement
+Station = Base.classes.station
 # Create our session (link) from Python to the DB
-
+session = Session(engine)
 
 #################################################
 # Flask Setup
@@ -54,7 +63,7 @@ def home():
 def precipitation():
     """Return the last 12 months of precipitation data"""
     # Calculate the date one year from today
-    one_year_ago = dt.date.today() - dt.timedelta(days=365)
+    one_year_ago = dt.date(2017, 8, 23) - dt.timedelta(days=365)
     
     # Query the database for precipitation data for the last 12 months
     results = session.query(Measurement.date, Measurement.prcp).\
@@ -82,7 +91,7 @@ def stations():
 def tobs():
     """Return the last 12 months of temperature observation data"""
     # Calculate the date one year from today
-    one_year_ago = dt.date.today() - dt.timedelta(days=365)
+    one_year_ago = dt.date(2017, 8, 23) - dt.timedelta(days=365)
     
     # Query the database for temperature observations for the most active station
     results = session.query(Measurement.date, Measurement.tobs).\
@@ -99,8 +108,9 @@ def tobs():
 def start_date(start):
     """Return the minimum, average, and maximum temperatures for a given start date"""
     # Query the database for temperature data greater than or equal to the start date
+    start_date = dt.datetime.strptime(start, "%d%m%Y")
     results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
-        filter(Measurement.date >= start).all()
+        filter(Measurement.date >= start_date).all()
     
     # Create a dictionary with temperature statistics
     temperature_stats = {
@@ -115,7 +125,21 @@ def start_date(start):
 @app.route("/api/v1.0/<start>/<end>")
 def start_end_date(start, end):
     """Return the minimum, average, and maximum temperatures for a given start and end date"""
-    # Query the
+    start_date = dt.datetime.strptime(start, "%d%m%Y")
+    end_date = dt.datetime.strptime(end, "%d%m%Y")
+    results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+        filter(Measurement.date >= start_date).filter(Measurement.date <= end_date).all()
+    
+    # Create a dictionary with temperature statistics
+    temperature_stats = {
+        "TMIN": results[0][0],
+        "TAVG": results[0][1],
+        "TMAX": results[0][2]
+    }
+    
+    return jsonify(temperature_stats)
 
 
+if __name__ == '__main__':
+    app.run(debug=True)
 
